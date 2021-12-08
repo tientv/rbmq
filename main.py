@@ -8,6 +8,8 @@ import time
 from threading import Thread
 from contextlib import contextmanager
 
+import numpy as np
+
 from rbmq import queue
 
 received_signal = False
@@ -41,7 +43,8 @@ def block_signals():
 def consumer_rdb_simple(ch, method, properties, body):
     with block_signals():
         print(" [x] consumer_rdb_simple " + body.decode("utf-8"))
-        time.sleep(2)
+        time.sleep(10)
+        print("done", body.decode("utf-8"))
         queue.push("rdb_full", body.decode("utf-8"))
 
 
@@ -64,17 +67,25 @@ def consumer_hdb(ch, method, properties, body):
         print(" [x] consumer_hdb " + body.decode("utf-8"))
 
 
+def start_queue_consumer(queue_name, consumer_fn, size):
+    for _ in np.arange(size):
+        t = Thread(target=queue.start_consumer, args=(queue_name, consumer_fn,))
+        t.start()
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     try:
-        t_rdb_simple = Thread(target=queue.start_consumer, args=("rdb_simple", consumer_rdb_simple,))
-        t_rdb_simple.start()
-        t_rdb_full = Thread(target=queue.start_consumer, args=("rdb_full", consumer_rdb_full,))
-        t_rdb_full.start()
-        t_rdb_2mins = Thread(target=queue.start_consumer, args=("rdb_2mins", consumer_rdb_2mins,))
-        t_rdb_2mins.start()
-        t_hdb = Thread(target=queue.start_consumer, args=("hdb", consumer_hdb,))
-        t_hdb.start()
+        start_queue_consumer('rdb_simple', consumer_rdb_simple, 10)
+        start_queue_consumer('rdb_full', consumer_rdb_full, 10)
+        start_queue_consumer('rdb_2mins', consumer_rdb_2mins, 10)
+        start_queue_consumer('hdb', consumer_hdb, 10)
+        time.sleep(20)
+        queue.push("rdb_simple", "0x0")
+        queue.push("rdb_simple", "0x1")
+        queue.push("rdb_simple", "0x2")
+        queue.push("rdb_simple", "0x3")
+        queue.push("rdb_simple", "0x4")
     except Exception as e:
         print(e)
 
